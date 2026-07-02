@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [改进] #1777 台股三大法人 fetcher（`TwInstitutionalFetcher`）增加缓存防击穿：并发同 (市场, 日期) 调用合并为单次上游请求，保护 TWSE T86 ~3 req/5s 限流额度；不同 key 仍并行；新增并发单次抓取、不同 key 各抓一次、HTTP 错误 fail-open 回归测试。
 - [修复] A 股个股分析遇到空 `belong_boards` 占位时会继续补查所属板块，关联板块模块在已有板块时稳定展示；对应涨跌幅缺失时只显示板块，不再输出占位涨跌幅。
 - [修复] 大盘复盘在 LLM 标题漂移或正文缺少板块段时，会从结构化 `sectors` 兜底渲染板块表，避免 Web 与推送报告偶发缺少板块主线。
+- [新功能] Web 设置页新增 DeepSeek Flash/Pro 模型策略切换，支持省钱、平衡、深度三种策略自动更新 `LITELLM_MODEL` / `AGENT_LITELLM_MODEL` / `LITELLM_FALLBACK_MODELS`，首页新增“本次 Pro”请求级临时开关，并补充成本与 Docker environment 覆盖提示。
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->

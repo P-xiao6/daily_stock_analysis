@@ -100,6 +100,17 @@ const settingsHelpZhCN: SettingsHelpMap = {
     usage: '默认 1，避免同时启动多个本地 CLI 进程导致机器变慢或输出互相干扰。',
     valueNotes: ['最终并发不会超过“模型生成最大并发”。'],
   },
+  'settings.ai_model.MODEL_ROUTING_POLICY': {
+    title: '模型策略',
+    summary: '一键切换 DeepSeek Flash/Pro 的使用策略，避免每次手动改模型名。',
+    usage: '推荐平衡模式：普通分析和日报使用 Flash，问股 Agent、深度分析和回测总结使用 Pro。',
+    valueNotes: [
+      '保存后会自动更新 LITELLM_MODEL、AGENT_LITELLM_MODEL 和 LITELLM_FALLBACK_MODELS。',
+      '省钱模式默认使用 Flash；深度模式默认使用 Pro。',
+      'Pro 成本更高，批量分析不建议默认使用 Pro。',
+    ],
+    impact: ['影响后续全局分析任务；首页“本次 Pro”开关只影响当前任务。'],
+  },
   'settings.ai_model.LITELLM_MODEL': {
     title: '主模型',
     summary: '指定普通分析流程默认使用的 LLM 模型。',
@@ -1275,6 +1286,17 @@ const settingsHelpEnUS: SettingsHelpMap = {
     summary: 'Limits how many local command-line generation processes may run at the same time.',
     usage: 'Default is 1 to avoid starting multiple local CLI processes at once and slowing the machine down.',
     valueNotes: ['Final concurrency never exceeds Model Generation Max Concurrency.'],
+  },
+  'settings.ai_model.MODEL_ROUTING_POLICY': {
+    title: 'Model Routing Policy',
+    summary: 'Switch DeepSeek Flash/Pro routing without manually editing model names each time.',
+    usage: 'Balanced mode is recommended: regular analysis and daily reports use Flash, while ask-stock Agent, deep analysis, and backtest summaries use Pro.',
+    valueNotes: [
+      'Saving updates LITELLM_MODEL, AGENT_LITELLM_MODEL, and LITELLM_FALLBACK_MODELS together.',
+      'Cost mode defaults to Flash; deep mode defaults to Pro.',
+      'Pro costs more, so avoid making it the default for batch analysis.',
+    ],
+    impact: ['Affects future global analysis tasks; the Home page Pro-once switch affects only the current task.'],
   },
   'settings.ai_model.LITELLM_MODEL': {
     title: 'Primary Model',

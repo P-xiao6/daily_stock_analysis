@@ -67,6 +67,11 @@ from src.llm.backend_registry import (
 )
 from src.llm.generation_params import apply_litellm_generation_params
 from src.llm.local_cli_backend import resolve_local_cli_preset
+from src.services.model_routing_policy import (
+    MODEL_ROUTING_ENV_KEYS,
+    MODEL_ROUTING_POLICY_KEY,
+    expand_model_routing_updates,
+)
 from src.notification_contracts import (
     FEISHU_APP_BOT_ENV_GROUP,
     FEISHU_WEBHOOK_ENV_GROUP,
@@ -439,6 +444,7 @@ class SystemConfigService:
 
     def validate(self, items: Sequence[Dict[str, str]], mask_token: str = "******") -> Dict[str, Any]:
         """Validate submitted items without writing to `.env`."""
+        items = expand_model_routing_updates(items)
         issues = self._collect_issues(items=items, mask_token=mask_token)
         valid = not any(issue["severity"] == "error" for issue in issues)
         return {
@@ -1886,6 +1892,7 @@ class SystemConfigService:
         reload_now: bool = True,
     ) -> Dict[str, Any]:
         """Validate and persist updates into `.env`, then reload runtime config."""
+        items = expand_model_routing_updates(items)
         current_version = self._manager.get_config_version()
         if current_version != config_version:
             raise ConfigConflictError(current_version=current_version)
@@ -1948,6 +1955,11 @@ class SystemConfigService:
                 updates=update_map,
             )
         )
+        warnings.extend(
+            self._build_model_routing_environment_warnings(
+                submitted_keys=submitted_keys,
+            )
+        )
         if self._runtime_scheduler is not None and submitted_keys & {
             "SCHEDULE_ENABLED",
             "SCHEDULE_TIME",
@@ -1970,6 +1982,24 @@ class SystemConfigService:
             "updated_keys": updated_keys,
             "warnings": warnings,
         }
+
+    @staticmethod
+    def _build_model_routing_environment_warnings(*, submitted_keys: Set[str]) -> List[str]:
+        """Warn when container/runtime environment variables may override saved model settings."""
+        if MODEL_ROUTING_POLICY_KEY not in submitted_keys:
+            return []
+        injected = [key for key in MODEL_ROUTING_ENV_KEYS if (os.environ.get(key) or "").strip()]
+        channel_keys = ("LLM_CHANNELS", "LITELLM_CONFIG")
+        injected.extend(key for key in channel_keys if (os.environ.get(key) or "").strip())
+        if not injected:
+            return []
+        return [
+            (
+                "检测到当前进程环境中存在模型相关变量："
+                f"{', '.join(sorted(set(injected)))}。"
+                "如果 Docker Compose environment 显式传入这些变量，容器重启后可能覆盖 Web 设置页保存值。"
+            )
+        ]
 
     def _build_explainability_warnings(
         self,

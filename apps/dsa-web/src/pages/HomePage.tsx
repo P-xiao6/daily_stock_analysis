@@ -53,6 +53,7 @@ const HomePage: React.FC = () => {
   const [marketReviewError, setMarketReviewError] = useState<ParsedApiError | null>(null);
   const [marketReviewReport, setMarketReviewReport] = useState<string | null>(null);
   const [marketReviewPayload, setMarketReviewPayload] = useState<MarketReviewPayload | null>(null);
+  const [temporaryProAnalysis, setTemporaryProAnalysis] = useState(false);
   const [analysisSkills, setAnalysisSkills] = useState<SkillInfo[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState('');
   const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);
@@ -418,9 +419,10 @@ const HomePage: React.FC = () => {
         originalQuery: query,
         selectionSource: selectionSource ?? 'manual',
         skills: selectedAnalysisSkills,
+        temporaryProAnalysis,
       });
     },
-    [query, selectedAnalysisSkills, submitAnalysis],
+    [query, selectedAnalysisSkills, submitAnalysis, temporaryProAnalysis],
   );
 
   useEffect(() => {
@@ -460,8 +462,9 @@ const HomePage: React.FC = () => {
       selectionSource: 'manual',
       forceRefresh: true,
       skills: selectedAnalysisSkills,
+      temporaryProAnalysis,
     });
-  }, [selectedAnalysisSkills, selectedReport, submitAnalysis]);
+  }, [selectedAnalysisSkills, selectedReport, submitAnalysis, temporaryProAnalysis]);
 
   const openTaskRunFlow = useCallback((task: TaskInfo) => {
     const stock = task.stockName || task.stockCode || task.taskId;
@@ -612,7 +615,10 @@ const HomePage: React.FC = () => {
     setMarketReviewPayload(null);
     scrollMarketReviewFeedbackIntoView();
     try {
-      const result = await analysisApi.triggerMarketReview({ sendNotification: notify });
+      const result = await analysisApi.triggerMarketReview({
+        sendNotification: notify,
+        temporaryProAnalysis,
+      });
       setMarketReviewNotice({
         variant: 'success',
         title: t('home.marketReviewSubmitted'),
@@ -630,7 +636,7 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSubmittingMarketReview(false);
     }
-  }, [notify, pollMarketReviewStatus, scrollMarketReviewFeedbackIntoView, t]);
+  }, [notify, pollMarketReviewStatus, scrollMarketReviewFeedbackIntoView, t, temporaryProAnalysis]);
 
   const mergedStockBarItems = useMemo<StockBarItem[]>(() => {
     const latestMarketReview = marketReviewHistoryItems[0];
@@ -771,7 +777,7 @@ const HomePage: React.FC = () => {
                 </div>
               ) : null}
             </div>
-            <div className="flex min-w-0 flex-shrink-0 items-center gap-2.5">
+            <div className="flex min-w-0 flex-shrink-0 flex-wrap items-center justify-end gap-2.5">
               <label className="flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
                 <input
                   type="checkbox"
@@ -780,6 +786,15 @@ const HomePage: React.FC = () => {
                   className="h-3.5 w-3.5 rounded border-border accent-primary"
                 />
                 {t('home.notify')}
+              </label>
+              <label className="flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 text-xs text-secondary-text select-none transition-colors hover:border-amber-400/60 hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={temporaryProAnalysis}
+                  onChange={(e) => setTemporaryProAnalysis(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border accent-amber-500"
+                />
+                {t('home.temporaryProAnalysis')}
               </label>
               <Button
                 type="button"

@@ -1290,6 +1290,13 @@ const SettingsPage: React.FC = () => {
       title={t('settings.activePanelTitle')}
       description={getCategoryDescription(activeCategory as SystemConfigCategory, '', uiLanguage) || t('settings.activePanelDescription')}
     >
+      {activeCategory === 'ai_model' ? (
+        <SettingsAlert
+          title={t('settings.modelRoutingNoticeTitle')}
+          message={t('settings.modelRoutingNoticeMessage')}
+          variant="warning"
+        />
+      ) : null}
       {visibleActiveItems.map((item) => (
         <SettingsField
           key={item.key}

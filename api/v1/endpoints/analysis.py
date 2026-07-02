@@ -92,6 +92,7 @@ from src.utils.data_processing import (
     extract_board_detail_fields,
     extract_realtime_detail_fields,
 )
+from src.services.model_routing_policy import apply_temporary_pro_analysis_config
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,16 @@ def _with_request_report_language(config: Config, report_language: Optional[str]
     scoped_config = copy.copy(config)
     scoped_config.report_language = normalized
     return scoped_config
+
+
+def _with_request_model_overrides(
+    config: Config,
+    *,
+    report_language: Optional[str] = None,
+    temporary_pro_analysis: bool = False,
+) -> Config:
+    scoped_config = apply_temporary_pro_analysis_config(config) if temporary_pro_analysis else config
+    return _with_request_report_language(scoped_config, report_language)
 
 
 def _run_market_review_background(
@@ -337,6 +348,7 @@ def _handle_async_analysis_batch(
     skills = getattr(request, "skills", None)
     analysis_phase = request.analysis_phase
     report_language = normalize_report_language(getattr(request, "report_language", None), default="")
+    temporary_pro_analysis = bool(getattr(request, "temporary_pro_analysis", False))
 
     submit_kwargs = dict(
         stock_codes=stock_codes,
@@ -347,6 +359,7 @@ def _handle_async_analysis_batch(
         analysis_phase=analysis_phase,
         force_refresh=request.force_refresh,
         notify=notify,
+        temporary_pro_analysis=temporary_pro_analysis,
     )
     if report_language:
         submit_kwargs["report_language"] = report_language
@@ -440,6 +453,7 @@ def _handle_sync_analysis(
             skills=getattr(request, "skills", None),
             analysis_phase=request.analysis_phase,
             report_language=getattr(request, "report_language", None),
+            temporary_pro_analysis=getattr(request, "temporary_pro_analysis", False),
         )
 
         if result is None:
@@ -501,9 +515,10 @@ def trigger_market_review(
     """Trigger market review from Web/API without blocking the request."""
     request = request or MarketReviewRequest()
 
-    runtime_config = _with_request_report_language(
+    runtime_config = _with_request_model_overrides(
         config,
-        getattr(request, "report_language", None),
+        report_language=getattr(request, "report_language", None),
+        temporary_pro_analysis=getattr(request, "temporary_pro_analysis", False),
     )
 
     lock_token = _try_acquire_market_review_lock(runtime_config)

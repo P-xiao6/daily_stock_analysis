@@ -31,6 +31,7 @@ from src.services.run_diagnostics import (
     get_current_diagnostic_context,
     reset_run_diagnostic_context,
 )
+from src.services.model_routing_policy import apply_temporary_pro_analysis_config
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class AnalysisService:
         query_source: str = "api",
         portfolio_context: Optional[Dict[str, Any]] = None,
         report_language: Optional[str] = None,
+        temporary_pro_analysis: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         执行股票分析
@@ -101,6 +103,8 @@ class AnalysisService:
             
             # 获取配置
             config = get_config()
+            if temporary_pro_analysis:
+                config = apply_temporary_pro_analysis_config(config)
             normalized_report_language = normalize_report_language(report_language, default="")
             if normalized_report_language:
                 config = copy.copy(config)

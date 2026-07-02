@@ -21,6 +21,7 @@ ensure_litellm_stub()
 from src.config import ANSPIRE_LLM_MODEL_DEFAULT, DEFAULT_ALPHASIFT_INSTALL_SPEC, Config
 from src.core.config_manager import ConfigManager
 from src.llm.backend_registry import GENERATION_ONLY_BACKEND_IDS
+from src.services.model_routing_policy import DEEPSEEK_FLASH_MODEL, DEEPSEEK_PRO_MODEL
 from src.services.system_config_service import ConfigConflictError, ConfigImportError, SystemConfigService
 
 
@@ -102,6 +103,20 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertTrue(items["LLM_HERMES_API_KEYS"]["is_masked"])
         self.assertEqual(items["LLM_HERMES_EXTRA_HEADERS"]["value"], payload["mask_token"])
         self.assertTrue(items["LLM_HERMES_EXTRA_HEADERS"]["is_masked"])
+
+    def test_update_model_routing_policy_expands_runtime_model_keys(self) -> None:
+        result = self.service.update(
+            config_version=self.manager.get_config_version(),
+            items=[{"key": "MODEL_ROUTING_POLICY", "value": "balanced"}],
+            reload_now=False,
+        )
+
+        saved = self.manager.read_config_map()
+        self.assertTrue(result["success"])
+        self.assertEqual(saved["MODEL_ROUTING_POLICY"], "balanced")
+        self.assertEqual(saved["LITELLM_MODEL"], DEEPSEEK_FLASH_MODEL)
+        self.assertEqual(saved["AGENT_LITELLM_MODEL"], DEEPSEEK_PRO_MODEL)
+        self.assertEqual(saved["LITELLM_FALLBACK_MODELS"], DEEPSEEK_PRO_MODEL)
 
     def test_hermes_saved_secret_changed_port_does_not_send_request(self) -> None:
         self._rewrite_env(

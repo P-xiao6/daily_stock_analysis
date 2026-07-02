@@ -20,12 +20,14 @@ export interface AnalysisRequest {
   originalQuery?: string;
   selectionSource?: 'manual' | 'autocomplete' | 'import' | 'image';
   notify?: boolean;
+  temporaryProAnalysis?: boolean;
   skills?: string[];
   reportLanguage?: ReportLanguage;
 }
 
 export interface MarketReviewRequest {
   sendNotification?: boolean;
+  temporaryProAnalysis?: boolean;
   reportLanguage?: ReportLanguage;
 }
 

@@ -80,6 +80,11 @@ class AnalyzeRequest(BaseModel):
         True,
         description="是否发送推送通知（Telegram/企业微信等）"
     )
+    temporary_pro_analysis: bool = Field(
+        False,
+        validation_alias=AliasChoices("temporary_pro_analysis", "temporaryProAnalysis"),
+        description="仅本次任务临时使用 Pro 深度分析模型；不改变全局配置",
+    )
     report_language: Optional[Literal["zh", "en", "ko"]] = Field(
         None,
         validation_alias=AliasChoices("report_language", "reportLanguage"),
@@ -103,6 +108,7 @@ class AnalyzeRequest(BaseModel):
             "original_query": "茅台",
             "selection_source": "autocomplete",
             "notify": True,
+            "temporary_pro_analysis": False,
             "report_language": "zh",
             "skills": ["bull_trend"]
         }
@@ -120,6 +126,11 @@ class MarketReviewRequest(BaseModel):
         None,
         validation_alias=AliasChoices("report_language", "reportLanguage"),
         description="本次大盘复盘报告输出语言；未传时使用全局 REPORT_LANGUAGE",
+    )
+    temporary_pro_analysis: bool = Field(
+        False,
+        validation_alias=AliasChoices("temporary_pro_analysis", "temporaryProAnalysis"),
+        description="仅本次大盘复盘临时使用 Pro 深度分析模型；不改变全局配置",
     )
 
 

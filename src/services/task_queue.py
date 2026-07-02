@@ -85,6 +85,7 @@ class TaskInfo:
     portfolio_context: Optional[Dict[str, Any]] = None
     skills: Optional[List[str]] = None
     report_language: Optional[str] = None
+    temporary_pro_analysis: bool = False
     trace_id: Optional[str] = None
     flow_events: List[Dict[str, Any]] = field(default_factory=list)
     
@@ -107,6 +108,7 @@ class TaskInfo:
             "original_query": self.original_query,
             "selection_source": self.selection_source,
             "skills": self.skills,
+            "temporary_pro_analysis": self.temporary_pro_analysis,
         }
     
     def copy(self) -> 'TaskInfo':
@@ -131,6 +133,7 @@ class TaskInfo:
             portfolio_context=dict(self.portfolio_context) if isinstance(self.portfolio_context, dict) else None,
             skills=list(self.skills) if self.skills is not None else None,
             report_language=self.report_language,
+            temporary_pro_analysis=self.temporary_pro_analysis,
             trace_id=self.trace_id or self.task_id,
             flow_events=copy.deepcopy(self.flow_events),
         )
@@ -332,6 +335,7 @@ class AnalysisTaskQueue:
         force_refresh: bool = False,
         skills: Optional[List[str]] = None,
         report_language: Optional[str] = None,
+        temporary_pro_analysis: bool = False,
     ) -> TaskInfo:
         """
         Submit a single analysis task.
@@ -367,6 +371,7 @@ class AnalysisTaskQueue:
             force_refresh=force_refresh,
             skills=skills,
             report_language=report_language,
+            temporary_pro_analysis=temporary_pro_analysis,
         )
         if duplicates:
             raise duplicates[0]
@@ -386,6 +391,7 @@ class AnalysisTaskQueue:
         notify: bool = True,
         skills: Optional[List[str]] = None,
         report_language: Optional[str] = None,
+        temporary_pro_analysis: bool = False,
     ) -> Tuple[List[TaskInfo], List[DuplicateTaskError]]:
         """
         Submit analysis tasks in batch.
@@ -429,6 +435,7 @@ class AnalysisTaskQueue:
                     portfolio_context=dict(portfolio_context) if isinstance(portfolio_context, dict) else None,
                     skills=task_skills,
                     report_language=report_language,
+                    temporary_pro_analysis=temporary_pro_analysis,
                 )
                 self._tasks[task_id] = task_info
                 self._analyzing_stocks[dedupe_key] = task_id
@@ -443,6 +450,7 @@ class AnalysisTaskQueue:
                         notify,
                         task_skills,
                         report_language,
+                        temporary_pro_analysis,
                     )
                 except Exception:
                     # Roll back the current batch to avoid partial submission.
@@ -667,6 +675,7 @@ class AnalysisTaskQueue:
         notify: bool = True,
         skills: Optional[List[str]] = None,
         report_language: Optional[str] = None,
+        temporary_pro_analysis: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         执行分析任务（在线程池中运行）
@@ -729,6 +738,7 @@ class AnalysisTaskQueue:
                 query_source=query_source,
                 portfolio_context=portfolio_context,
                 report_language=report_language,
+                temporary_pro_analysis=temporary_pro_analysis,
             )
             reset_run_diagnostic_context(diag_token)
             diag_token = None

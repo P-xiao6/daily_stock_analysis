@@ -28,6 +28,7 @@ type SubmitAnalysisOptions = {
   originalQuery?: string;
   selectionSource?: SelectionSource;
   notify?: boolean;
+  temporaryProAnalysis?: boolean;
   forceRefresh?: boolean;
   skills?: string[];
   reportLanguage?: ReportLanguage;
@@ -872,6 +873,7 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
     const selectionSource = options?.selectionSource ?? state.selectionSource;
     const originalQuery = (options?.originalQuery ?? state.query).trim();
     const notify = options?.notify ?? state.notify;
+    const temporaryProAnalysis = options?.temporaryProAnalysis ?? false;
     const forceRefresh = options?.forceRefresh ?? false;
     const skills = options?.skills;
 
@@ -911,6 +913,7 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
         originalQuery: originalQuery || stockCodeInput,
         selectionSource,
         notify,
+        temporaryProAnalysis,
         forceRefresh,
         skills,
         ...(options?.reportLanguage !== undefined && { reportLanguage: options.reportLanguage }),

@@ -296,6 +296,40 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         ],
         "warning_codes": [],
     },
+    "MODEL_ROUTING_POLICY": {
+        "title": "Model Routing Policy",
+        "description": (
+            "DeepSeek Flash/Pro preset. Saving it updates LITELLM_MODEL, "
+            "AGENT_LITELLM_MODEL, and LITELLM_FALLBACK_MODELS together."
+        ),
+        "category": "ai_model",
+        "data_type": "string",
+        "ui_control": "select",
+        "is_sensitive": False,
+        "is_required": False,
+        "is_editable": True,
+        "default_value": "balanced",
+        "options": [
+            {"label": "省钱模式 - Flash 优先", "value": "cost"},
+            {"label": "平衡模式 - Flash + Agent Pro", "value": "balanced"},
+            {"label": "深度模式 - Pro 优先", "value": "deep"},
+        ],
+        "validation": {"enum": ["cost", "balanced", "deep"]},
+        "display_order": 1,
+        "help_key": "settings.ai_model.MODEL_ROUTING_POLICY",
+        "examples": [
+            "MODEL_ROUTING_POLICY=balanced",
+            "LITELLM_MODEL=deepseek/deepseek-v4-flash",
+            "AGENT_LITELLM_MODEL=deepseek/deepseek-v4-pro",
+        ],
+        "docs": [
+            {
+                "label": "模型策略路由",
+                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/MODEL_ROUTING.md",
+            },
+        ],
+        "warning_codes": ["pro_cost_warning", "docker_environment_override"],
+    },
     "LITELLM_MODEL": {
         "title": "Primary Model",
         "description": "Primary model in provider/model format (e.g. gemini/gemini-3.1-pro-preview, deepseek/deepseek-v4-flash, anthropic/claude-sonnet-4-6). If empty, it is auto-inferred from available API keys or channel declarations.",

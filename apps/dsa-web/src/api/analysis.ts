@@ -34,6 +34,7 @@ export const analysisApi = {
       selection_source: data.selectionSource,
       skills: data.skills,
       report_language: data.reportLanguage,
+      temporary_pro_analysis: data.temporaryProAnalysis || false,
       ...(data.notify !== undefined && { notify: data.notify }),
     };
 
@@ -70,6 +71,7 @@ export const analysisApi = {
       selection_source: data.selectionSource,
       skills: data.skills,
       report_language: data.reportLanguage,
+      temporary_pro_analysis: data.temporaryProAnalysis || false,
       ...(data.notify !== undefined && { notify: data.notify }),
     };
 
@@ -105,6 +107,7 @@ export const analysisApi = {
       {
         send_notification: data.sendNotification ?? true,
         report_language: data.reportLanguage,
+        temporary_pro_analysis: data.temporaryProAnalysis || false,
       },
       {
         validateStatus: (status) => status === 202 || status === 409,
