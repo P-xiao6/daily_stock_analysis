@@ -70,6 +70,13 @@ from src.llm.hermes import (
     route_has_hermes,
 )
 from src.scheduler import normalize_schedule_times
+from src.services.model_routing_policy import (
+    DEFAULT_MODEL_ROUTING_POLICY,
+    DEEPSEEK_FLASH_MODEL,
+    DEEPSEEK_PRO_MODEL,
+    get_model_routing_policy,
+    normalize_model_routing_policy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -630,6 +637,12 @@ def get_effective_agent_primary_model(config: "Config") -> str:
     )
     if configured_agent_model:
         return configured_agent_model
+    policy_name = normalize_model_routing_policy(
+        getattr(config, "model_routing_policy", DEFAULT_MODEL_ROUTING_POLICY)
+    )
+    policy = get_model_routing_policy(policy_name)
+    if policy.agent_litellm_model:
+        return policy.agent_litellm_model
     return (getattr(config, "litellm_model", "") or "").strip()
 
 
@@ -743,6 +756,7 @@ class Config:
     generation_backend_max_concurrency: int = DEFAULT_GENERATION_BACKEND_MAX_CONCURRENCY
     local_cli_backend_max_concurrency: int = DEFAULT_LOCAL_CLI_BACKEND_MAX_CONCURRENCY
     opencode_cli_model: str = ""
+    model_routing_policy: str = DEFAULT_MODEL_ROUTING_POLICY
     # LiteLLM unified model config (provider/model format, e.g. gemini/gemini-3.1-pro-preview)
     litellm_model: str = ""  # Primary model; must include provider prefix when set explicitly
     litellm_fallback_models: List[str] = field(default_factory=list)  # Cross-model fallback list
@@ -1325,6 +1339,9 @@ class Config:
         # LITELLM_MODEL / LITELLM_FALLBACK_MODELS explicit values are recorded
         # before YAML/channels are parsed, but legacy inference is delayed until
         # the higher-priority sources and Hermes blocking issues are known.
+        model_routing_policy_raw = os.getenv('MODEL_ROUTING_POLICY', '').strip()
+        model_routing_policy = normalize_model_routing_policy(model_routing_policy_raw)
+        model_routing_policy_explicit = bool(model_routing_policy_raw)
         litellm_model_explicit = os.getenv('LITELLM_MODEL', '').strip()
         litellm_model = litellm_model_explicit
         inferred_legacy_deepseek_model = False
@@ -1435,6 +1452,18 @@ class Config:
                 "please migrate to deepseek-v4-flash."
             )
 
+        policy = get_model_routing_policy(model_routing_policy)
+        route_models_set = set(get_configured_llm_models(llm_model_list))
+        policy_models_available = bool(
+            {DEEPSEEK_FLASH_MODEL, DEEPSEEK_PRO_MODEL} & route_models_set
+        )
+        apply_model_routing_policy = model_routing_policy_explicit or policy_models_available
+        if apply_model_routing_policy:
+            if not litellm_model_explicit:
+                litellm_model = policy.litellm_model
+            if not litellm_fallback_models_explicit:
+                litellm_fallback_models = list(policy.fallback_models)
+
         generation_backend = (
             os.getenv('GENERATION_BACKEND', LITELLM_BACKEND_ID).strip().lower()
             or LITELLM_BACKEND_ID
@@ -1478,10 +1507,16 @@ class Config:
         )
         opencode_cli_model = (os.getenv('OPENCODE_CLI_MODEL', '') or '').strip()
 
+        agent_litellm_model_explicit = os.getenv('AGENT_LITELLM_MODEL', '')
         agent_litellm_model = normalize_agent_litellm_model(
-            os.getenv('AGENT_LITELLM_MODEL', ''),
+            agent_litellm_model_explicit,
             configured_models=set(get_configured_llm_models(llm_model_list)),
         )
+        if apply_model_routing_policy and not agent_litellm_model_explicit.strip():
+            agent_litellm_model = normalize_agent_litellm_model(
+                policy.agent_litellm_model,
+                configured_models=set(get_configured_llm_models(llm_model_list)),
+            )
         agent_context_compression_profile = normalize_agent_context_compression_profile(
             os.getenv('AGENT_CONTEXT_COMPRESSION_PROFILE')
         )
@@ -1632,6 +1667,7 @@ class Config:
             generation_backend_max_concurrency=generation_backend_max_concurrency,
             local_cli_backend_max_concurrency=local_cli_backend_max_concurrency,
             opencode_cli_model=opencode_cli_model,
+            model_routing_policy=model_routing_policy,
             litellm_model=litellm_model,
             litellm_fallback_models=litellm_fallback_models,
             llm_temperature=resolve_unified_llm_temperature(litellm_model),

@@ -7,6 +7,7 @@ from src.services.model_routing_policy import (
     expand_model_routing_updates,
     get_model_routing_policy,
 )
+from src.config import Config, get_effective_agent_primary_model
 
 
 def test_cost_policy_generates_flash_config():
@@ -52,3 +53,13 @@ def test_expand_model_routing_updates_replaces_runtime_model_keys():
     assert expanded_map["LITELLM_MODEL"] == DEEPSEEK_FLASH_MODEL
     assert expanded_map["AGENT_LITELLM_MODEL"] == DEEPSEEK_PRO_MODEL
     assert expanded_map["LITELLM_FALLBACK_MODELS"] == DEEPSEEK_PRO_MODEL
+
+
+def test_balanced_policy_routes_agent_to_pro_when_agent_model_is_empty():
+    config = Config(
+        litellm_model=DEEPSEEK_FLASH_MODEL,
+        agent_litellm_model="",
+        model_routing_policy="balanced",
+    )
+
+    assert get_effective_agent_primary_model(config) == DEEPSEEK_PRO_MODEL
