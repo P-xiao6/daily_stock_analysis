@@ -710,7 +710,7 @@ const zh = {
   'settings.llmAccessDescription': '统一管理模型渠道、基础地址、API Key、主模型与备选模型。',
   'settings.notificationSettings': '通知设置',
   'settings.modelRoutingNoticeTitle': '模型策略与成本提示',
-  'settings.modelRoutingNoticeMessage': 'Pro 成本更高，批量分析不建议默认使用 Pro。如果 Docker Compose environment 显式传入 LITELLM_MODEL、LLM_CHANNELS 或 LITELLM_CONFIG，容器重启后可能覆盖 Web 设置页保存值。',
+  'settings.modelRoutingNoticeMessage': 'Pro 模型成本更高，批量分析不建议默认使用 Pro。如果 Docker Compose environment 显式传入 LITELLM_MODEL、LLM_CHANNELS 或 LITELLM_CONFIG，容器重启后可能覆盖 Web 设置页保存值。',
   'settings.notificationTest': '通知测试',
   'settings.notificationTestBody': '正文',
   'settings.notificationTestChannel': '渠道',
