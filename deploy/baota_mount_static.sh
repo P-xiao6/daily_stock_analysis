@@ -44,19 +44,61 @@ log "compose backup: $COMPOSE_BACKUP"
 
 python3 - "$COMPOSE_FILE" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-mount = "    - ../app/static:/app/static:ro\n"
-if mount in text:
+mount_value = "../app/static:/app/static:ro"
+if mount_value in text:
     sys.exit(0)
 
-anchor = "    - ../app/strategies:/app/strategies:ro\n"
-if anchor not in text:
-    raise SystemExit("strategies volume anchor not found; refusing to edit compose")
+lines = text.splitlines(keepends=True)
 
-path.write_text(text.replace(anchor, anchor + mount, 1), encoding="utf-8")
+def indent_of(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+server_index = None
+server_indent = None
+for index, line in enumerate(lines):
+    if re.match(r"^\s*server:\s*(#.*)?$", line):
+        server_index = index
+        server_indent = indent_of(line)
+        break
+
+if server_index is None:
+    raise SystemExit("server service not found; refusing to edit compose")
+
+server_end = len(lines)
+for index in range(server_index + 1, len(lines)):
+    stripped = lines[index].strip()
+    if stripped and not stripped.startswith("#") and indent_of(lines[index]) <= server_indent:
+        server_end = index
+        break
+
+volumes_index = None
+for index in range(server_index + 1, server_end):
+    if re.match(rf"^ {{{server_indent + 2}}}volumes:\s*(#.*)?$", lines[index]):
+        volumes_index = index
+        break
+
+item_indent = server_indent + 4
+mount_line = f"{' ' * item_indent}- {mount_value}\n"
+
+if volumes_index is None:
+    insert_at = server_end
+    lines.insert(insert_at, f"{' ' * (server_indent + 2)}volumes:\n")
+    lines.insert(insert_at + 1, mount_line)
+else:
+    insert_at = volumes_index + 1
+    while insert_at < server_end:
+        stripped = lines[insert_at].strip()
+        if stripped and not stripped.startswith("#") and indent_of(lines[insert_at]) <= server_indent + 2:
+            break
+        insert_at += 1
+    lines.insert(insert_at, mount_line)
+
+path.write_text("".join(lines), encoding="utf-8")
 PY
 
 log "compose static mount ensured"
