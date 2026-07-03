@@ -96,6 +96,33 @@ def build_agent_event_monitor_background_tasks(
     }]
 
 
+def build_watchlist_auto_analysis_background_tasks() -> List[Dict[str, Any]]:
+    """Build the lightweight watchlist auto-analysis scanner task."""
+
+    def watchlist_auto_analysis_task() -> None:
+        try:
+            from src.services.watchlist_profile_service import WatchlistProfileService
+
+            result = WatchlistProfileService().run_due_auto_analysis(limit=1)
+            submitted_count = len(result.get("submitted", []))
+            skipped_count = len(result.get("skipped", []))
+            if submitted_count or skipped_count:
+                logger.info(
+                    "[WatchlistAutoAnalysis] submitted=%d skipped=%d",
+                    submitted_count,
+                    skipped_count,
+                )
+        except Exception as exc:  # noqa: BLE001 - background task must not stop scheduler.
+            logger.warning("[WatchlistAutoAnalysis] scan failed: %s", exc, exc_info=True)
+
+    return [{
+        "task": watchlist_auto_analysis_task,
+        "interval_seconds": 60,
+        "run_immediately": False,
+        "name": "watchlist_auto_analysis",
+    }]
+
+
 class RuntimeSchedulerService:
     """Manage scheduled analysis inside the current API/Web/Desktop process."""
 
@@ -211,7 +238,10 @@ class RuntimeSchedulerService:
     def _current_background_tasks(self, config: Config) -> List[Dict[str, Any]]:
         if self._background_tasks_provider is not None:
             return self._background_tasks_provider(config)
-        return self._current_agent_event_monitor_background_tasks(config)
+        return [
+            *self._current_agent_event_monitor_background_tasks(config),
+            *build_watchlist_auto_analysis_background_tasks(),
+        ]
 
     def _current_agent_event_monitor_background_tasks(self, config: Config) -> List[Dict[str, Any]]:
         name = "agent_event_monitor"

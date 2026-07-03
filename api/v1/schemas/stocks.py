@@ -9,7 +9,7 @@
 2. 定义历史 K 线数据模型
 """
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -106,3 +106,62 @@ class StockHistoryResponse(BaseModel):
             "data": []
         }
     })
+
+
+ScheduleMode = Literal["manual_only", "daily_close", "intraday", "custom_times", "alert_triggered"]
+ModelStrategy = Literal["auto", "flash", "pro"]
+
+
+class WatchlistProfile(BaseModel):
+    """每股自选股策略与自动分析配置"""
+
+    stock_code: str = Field(..., description="股票代码")
+    market: Optional[str] = Field(None, description="市场")
+    enabled: bool = Field(True, description="是否启用该自选 profile")
+    default_skill: Optional[str] = Field(None, description="默认策略 Skill ID")
+    model_strategy: ModelStrategy = Field("auto", description="模型策略：auto/flash/pro")
+    auto_analysis_enabled: bool = Field(False, description="是否启用自动深度分析")
+    schedule_mode: ScheduleMode = Field("manual_only", description="自动分析计划模式")
+    schedule_times: List[str] = Field(default_factory=list, description="HH:MM 时间点列表")
+    cooldown_minutes: int = Field(30, ge=1, le=1440, description="冷却时间，分钟")
+    max_daily_runs: int = Field(1, ge=1, le=3, description="每天最多自动运行次数")
+    last_analysis_at: Optional[str] = Field(None, description="最近一次深度分析时间")
+    next_analysis_at: Optional[str] = Field(None, description="下一次自动分析时间")
+    last_report_id: Optional[int] = Field(None, description="最近报告 ID")
+    last_decision_signal_id: Optional[int] = Field(None, description="最近 DecisionSignal ID")
+    created_at: Optional[str] = Field(None, description="创建时间")
+    updated_at: Optional[str] = Field(None, description="更新时间")
+
+
+class WatchlistProfilesResponse(BaseModel):
+    """自选股 profile 列表响应"""
+
+    profiles: List[WatchlistProfile] = Field(default_factory=list)
+
+
+class WatchlistProfileUpdateRequest(BaseModel):
+    """更新单只自选股 profile"""
+
+    market: Optional[str] = None
+    enabled: bool = True
+    default_skill: Optional[str] = None
+    model_strategy: ModelStrategy = "auto"
+    auto_analysis_enabled: bool = False
+    schedule_mode: ScheduleMode = "manual_only"
+    schedule_times: List[str] = Field(default_factory=list)
+    cooldown_minutes: int = Field(30, ge=1, le=1440)
+    max_daily_runs: int = Field(1, ge=1, le=3)
+
+
+class WatchlistAutoRunRequest(BaseModel):
+    """触发到期自动深度分析扫描"""
+
+    limit: int = Field(1, ge=1, le=10, description="本轮最多提交任务数")
+
+
+class WatchlistAutoRunResponse(BaseModel):
+    """到期自动深度分析扫描结果"""
+
+    submitted: List[dict] = Field(default_factory=list)
+    skipped: List[dict] = Field(default_factory=list)
+    limit: int = 1

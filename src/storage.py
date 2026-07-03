@@ -1100,6 +1100,34 @@ class DecisionSignalFeedbackRecord(Base):
     updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now, index=True)
 
 
+class WatchlistProfileRecord(Base):
+    """Per-stock watchlist analysis profile."""
+
+    __tablename__ = 'watchlist_profiles'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(32), nullable=False, unique=True, index=True)
+    market = Column(String(16), index=True)
+    enabled = Column(Boolean, nullable=False, default=True, index=True)
+    default_skill = Column(String(64))
+    model_strategy = Column(String(16), nullable=False, default="auto")
+    auto_analysis_enabled = Column(Boolean, nullable=False, default=False, index=True)
+    schedule_mode = Column(String(32), nullable=False, default="manual_only", index=True)
+    schedule_times = Column(Text)
+    cooldown_minutes = Column(Integer, nullable=False, default=30)
+    max_daily_runs = Column(Integer, nullable=False, default=1)
+    last_analysis_at = Column(DateTime, index=True)
+    next_analysis_at = Column(DateTime, index=True)
+    last_report_id = Column(Integer, index=True)
+    last_decision_signal_id = Column(Integer, index=True)
+    created_at = Column(DateTime, default=datetime.now, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False, index=True)
+
+    __table_args__ = (
+        Index('ix_watchlist_profiles_due', 'auto_analysis_enabled', 'enabled', 'next_analysis_at'),
+    )
+
+
 class _DatabaseManagerMeta(type):
     """Serialize DatabaseManager construction across __new__ and __init__."""
 

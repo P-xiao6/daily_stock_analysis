@@ -10,6 +10,7 @@ export interface UseWatchlistReturn {
   isInWatchlist: (stockCode: string) => boolean;
   addToWatchlist: (stockCode: string) => Promise<void>;
   removeFromWatchlist: (stockCode: string) => Promise<void>;
+  reorderWatchlist: (stockCodes: string[]) => Promise<void>;
   toggleWatchlist: (stockCode: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -101,6 +102,22 @@ export function useWatchlist(): UseWatchlistReturn {
     }
   }, [isActioning, showMessage]);
 
+  const reorderWatchlist = useCallback(async (stockCodes: string[]) => {
+    if (isActioning) return;
+    setIsActioning(true);
+    try {
+      const result = await systemConfigApi.reorderWatchlist(stockCodes);
+      if (mountedRef.current) {
+        setCodes(result);
+        showMessage('自选排序已更新');
+      }
+    } catch {
+      if (mountedRef.current) showMessage('排序保存失败');
+    } finally {
+      if (mountedRef.current) setIsActioning(false);
+    }
+  }, [isActioning, showMessage]);
+
   const toggleWatchlist = useCallback(async (stockCode: string) => {
     const existingStockCode = findMatchingStockCode(codes, stockCode);
     if (existingStockCode) {
@@ -118,6 +135,7 @@ export function useWatchlist(): UseWatchlistReturn {
     isInWatchlist,
     addToWatchlist,
     removeFromWatchlist,
+    reorderWatchlist,
     toggleWatchlist,
     refresh,
   };

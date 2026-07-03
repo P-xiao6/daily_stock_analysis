@@ -280,4 +280,15 @@ export const systemConfigApi = {
     const data = toCamelCase<{ stockCodes: string[] }>(response.data);
     return data.stockCodes || [];
   },
+
+  /**
+   * 更新自选队列排序
+   */
+  reorderWatchlist: async (stockCodes: string[]): Promise<string[]> => {
+    const response = await apiClient.post<Record<string, unknown>>('/api/v1/stocks/watchlist/reorder', {
+      stock_codes: stockCodes,
+    });
+    const data = toCamelCase<{ stockCodes: string[] }>(response.data);
+    return data.stockCodes || [];
+  },
 };

@@ -376,6 +376,12 @@ class WatchlistRequest(BaseModel):
     stock_code: str = Field(..., description="股票代码", min_length=1)
 
 
+class WatchlistReorderRequest(BaseModel):
+    """自选队列排序请求"""
+
+    stock_codes: List[str] = Field(default_factory=list, description="新的自选队列股票代码列表")
+
+
 class WatchlistResponse(BaseModel):
     """自选队列响应"""
 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Watchlist API regressions for stock-code variant matching."""
 
-from api.v1.endpoints.stocks import add_to_watchlist, remove_from_watchlist
-from api.v1.schemas.history import WatchlistRequest
+from api.v1.endpoints.stocks import add_to_watchlist, remove_from_watchlist, reorder_watchlist
+from api.v1.schemas.history import WatchlistRequest, WatchlistReorderRequest
 
 
 class FakeSystemConfigService:
@@ -64,3 +64,16 @@ def test_watchlist_matching_is_case_insensitive_for_us_tickers() -> None:
     assert add_response.stock_codes == ["aapl"]
     assert remove_response.stock_codes == []
     assert service.update_calls == [""]
+
+
+def test_watchlist_reorder_updates_stock_list_and_deduplicates_variants() -> None:
+    service = FakeSystemConfigService("600519,00700,AAPL")
+
+    response = reorder_watchlist(
+        WatchlistReorderRequest(stock_codes=["AAPL", "HK00700", "00700", "600519"]),
+        service=service,
+    )
+
+    assert response.stock_codes == ["AAPL", "HK00700", "600519"]
+    assert service.stock_list == "AAPL,HK00700,600519"
+    assert service.update_calls == ["AAPL,HK00700,600519"]

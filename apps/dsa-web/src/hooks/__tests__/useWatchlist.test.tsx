@@ -6,10 +6,12 @@ const {
   mockGetWatchlist,
   mockAddToWatchlist,
   mockRemoveFromWatchlist,
+  mockReorderWatchlist,
 } = vi.hoisted(() => ({
   mockGetWatchlist: vi.fn(),
   mockAddToWatchlist: vi.fn(),
   mockRemoveFromWatchlist: vi.fn(),
+  mockReorderWatchlist: vi.fn(),
 }));
 
 vi.mock('../../api/systemConfig', () => ({
@@ -17,6 +19,7 @@ vi.mock('../../api/systemConfig', () => ({
     getWatchlist: mockGetWatchlist,
     addToWatchlist: mockAddToWatchlist,
     removeFromWatchlist: mockRemoveFromWatchlist,
+    reorderWatchlist: mockReorderWatchlist,
   },
 }));
 
@@ -26,6 +29,7 @@ describe('useWatchlist', () => {
     mockGetWatchlist.mockResolvedValue([]);
     mockAddToWatchlist.mockResolvedValue([]);
     mockRemoveFromWatchlist.mockResolvedValue([]);
+    mockReorderWatchlist.mockResolvedValue([]);
   });
 
   it('matches raw HK watchlist entries against prefixed and suffixed variants', async () => {
@@ -82,5 +86,23 @@ describe('useWatchlist', () => {
 
     expect(mockRemoveFromWatchlist).toHaveBeenCalledWith('aapl');
     expect(mockAddToWatchlist).not.toHaveBeenCalled();
+  });
+
+  it('persists reordered watchlist codes', async () => {
+    mockGetWatchlist.mockResolvedValue(['600519', '000001']);
+    mockReorderWatchlist.mockResolvedValue(['000001', '600519']);
+
+    const { result } = renderHook(() => useWatchlist());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.reorderWatchlist(['000001', '600519']);
+    });
+
+    expect(mockReorderWatchlist).toHaveBeenCalledWith(['000001', '600519']);
+    expect(result.current.watchlistCodes).toEqual(['000001', '600519']);
   });
 });

@@ -25,8 +25,13 @@ from api.v1.schemas.stocks import (
     KLineData,
     StockHistoryResponse,
     StockQuote,
+    WatchlistAutoRunRequest,
+    WatchlistAutoRunResponse,
+    WatchlistProfile,
+    WatchlistProfilesResponse,
+    WatchlistProfileUpdateRequest,
 )
-from api.v1.schemas.history import WatchlistRequest, WatchlistResponse
+from api.v1.schemas.history import WatchlistRequest, WatchlistReorderRequest, WatchlistResponse
 from api.v1.schemas.common import ErrorResponse
 from src.services.image_stock_extractor import (
     ALLOWED_MIME,
@@ -40,6 +45,10 @@ from src.services.import_parser import (
 )
 from src.services.stock_service import StockService
 from src.services.system_config_service import SystemConfigService
+from src.services.watchlist_profile_service import (
+    WatchlistProfileService,
+    WatchlistProfileValidationError,
+)
 from data_provider.base import normalize_stock_code
 
 logger = logging.getLogger(__name__)
@@ -358,6 +367,7 @@ def add_to_watchlist(
         if _watchlist_match_key(validated) not in existing_keys:
             codes.append(request.stock_code.strip())
             _write_watchlist_codes(service, codes)
+        WatchlistProfileService().get_or_create(validated)
         return WatchlistResponse(stock_codes=codes, message=f"已加入 {request.stock_code.strip()}")
     except HTTPException:
         raise
@@ -401,6 +411,123 @@ def remove_from_watchlist(
         raise HTTPException(
             status_code=500,
             detail={"error": "internal_error", "message": f"从自选删除失败: {str(e)}"},
+        )
+
+
+@router.post(
+    "/watchlist/reorder",
+    response_model=WatchlistResponse,
+    responses={
+        200: {"description": "自选排序已更新"},
+        400: {"description": "参数错误", "model": ErrorResponse},
+        500: {"description": "服务器错误", "model": ErrorResponse},
+    },
+    summary="更新自选队列排序",
+    description="按请求顺序重写 STOCK_LIST；股票代码会校验格式，重复代码按首次出现保留。",
+)
+def reorder_watchlist(
+    request: WatchlistReorderRequest,
+    service: SystemConfigService = Depends(get_system_config_service),
+) -> WatchlistResponse:
+    try:
+        next_codes = []
+        seen_keys = set()
+        for raw_code in request.stock_codes:
+            validated = _validate_and_normalize_stock_code(raw_code)
+            match_key = _watchlist_match_key(validated)
+            if match_key in seen_keys:
+                continue
+            seen_keys.add(match_key)
+            next_codes.append(raw_code.strip())
+
+        _write_watchlist_codes(service, next_codes)
+        return WatchlistResponse(stock_codes=next_codes, message=f"已更新自选排序，共 {len(next_codes)} 只股票")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新自选排序失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "internal_error", "message": f"更新自选排序失败: {str(e)}"},
+        )
+
+
+@router.get(
+    "/watchlist/profiles",
+    response_model=WatchlistProfilesResponse,
+    responses={
+        200: {"description": "当前自选 profile 列表"},
+        500: {"description": "服务器错误", "model": ErrorResponse},
+    },
+    summary="获取自选股 profile",
+    description="返回 STOCK_LIST 中所有股票的每股策略与自动分析配置，不返回任何敏感系统配置。",
+)
+def get_watchlist_profiles(
+    service: SystemConfigService = Depends(get_system_config_service),
+) -> WatchlistProfilesResponse:
+    try:
+        codes = _read_watchlist_codes(service)
+        profiles = WatchlistProfileService().list_profiles(codes)
+        return WatchlistProfilesResponse(profiles=[WatchlistProfile(**item) for item in profiles])
+    except Exception as e:
+        logger.error(f"获取自选 profile 失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "internal_error", "message": f"获取自选 profile 失败: {str(e)}"},
+        )
+
+
+@router.put(
+    "/watchlist/profiles/{stock_code}",
+    response_model=WatchlistProfile,
+    responses={
+        200: {"description": "自选 profile 已更新"},
+        400: {"description": "参数错误", "model": ErrorResponse},
+        500: {"description": "服务器错误", "model": ErrorResponse},
+    },
+    summary="更新单只自选股 profile",
+    description="更新单只股票的默认策略、模型策略和自动深度分析计划。",
+)
+def update_watchlist_profile(
+    stock_code: str,
+    request: WatchlistProfileUpdateRequest,
+) -> WatchlistProfile:
+    try:
+        profile = WatchlistProfileService().update_profile(
+            stock_code,
+            request.model_dump(),
+        )
+        return WatchlistProfile(**profile)
+    except WatchlistProfileValidationError as e:
+        raise HTTPException(status_code=400, detail={"error": "validation_error", "message": str(e)})
+    except Exception as e:
+        logger.error(f"更新自选 profile 失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "internal_error", "message": f"更新自选 profile 失败: {str(e)}"},
+        )
+
+
+@router.post(
+    "/watchlist/auto-analysis/run-due",
+    response_model=WatchlistAutoRunResponse,
+    responses={
+        200: {"description": "已扫描到期自动分析任务"},
+        500: {"description": "服务器错误", "model": ErrorResponse},
+    },
+    summary="扫描并提交到期自动深度分析",
+    description="按 watchlist_profiles 中的计划提交到期任务；默认每轮最多 1 只，适合低配服务器计划任务调用。",
+)
+def run_due_watchlist_auto_analysis(
+    request: WatchlistAutoRunRequest = WatchlistAutoRunRequest(),
+) -> WatchlistAutoRunResponse:
+    try:
+        return WatchlistAutoRunResponse(**WatchlistProfileService().run_due_auto_analysis(limit=request.limit))
+    except Exception as e:
+        logger.error(f"扫描自选自动分析失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "internal_error", "message": f"扫描自选自动分析失败: {str(e)}"},
         )
 
 
