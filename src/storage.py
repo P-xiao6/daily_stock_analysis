@@ -1128,6 +1128,37 @@ class WatchlistProfileRecord(Base):
     )
 
 
+class RealtimeWatchProfileRecord(Base):
+    """Per-stock realtime watch rules and AI review guardrails."""
+
+    __tablename__ = 'realtime_watch_profiles'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(32), nullable=False, unique=True, index=True)
+    stock_name = Column(String(128))
+    market = Column(String(16), index=True)
+    enabled = Column(Boolean, nullable=False, default=True, index=True)
+    resistance_price = Column(Float)
+    support_price = Column(Float)
+    stop_loss_price = Column(Float)
+    target_price = Column(Float)
+    volume_ratio_threshold = Column(Float, nullable=False, default=2.0)
+    change_percent_threshold = Column(Float, nullable=False, default=3.0)
+    auto_ai_review_enabled = Column(Boolean, nullable=False, default=False, index=True)
+    ai_review_cooldown_minutes = Column(Integer, nullable=False, default=30)
+    max_daily_ai_reviews = Column(Integer, nullable=False, default=3)
+    default_skill = Column(String(64))
+    last_ai_review_at = Column(DateTime, index=True)
+    ai_review_count_date = Column(Date, index=True)
+    ai_review_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.now, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False, index=True)
+
+    __table_args__ = (
+        Index('ix_realtime_watch_enabled_updated', 'enabled', 'updated_at'),
+    )
+
+
 class _DatabaseManagerMeta(type):
     """Serialize DatabaseManager construction across __new__ and __init__."""
 

@@ -23,6 +23,7 @@ from api.v1.endpoints import (
     history,
     intelligence,
     portfolio,
+    realtime_watch,
     stocks,
     system_config,
     usage,
@@ -84,6 +85,12 @@ router.include_router(
     portfolio.router,
     prefix="/portfolio",
     tags=["Portfolio"]
+)
+
+router.include_router(
+    realtime_watch.router,
+    prefix="/realtime-watch",
+    tags=["RealtimeWatch"]
 )
 
 router.include_router(
