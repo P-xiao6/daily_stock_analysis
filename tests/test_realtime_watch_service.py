@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from datetime import date
+from types import SimpleNamespace
+
+import src.services.realtime_watch_service as realtime_watch_module
 from src.services.realtime_watch_service import RealtimeWatchService
 
 
@@ -65,3 +69,48 @@ def test_conflict_detects_stale_bullish_ai_signal():
         {"status": "放量突破观察"},
         {"action": "hold"},
     ) is False
+
+
+def test_ai_review_no_longer_blocks_on_daily_count(monkeypatch):
+    service = _service()
+    today = date.today().isoformat()
+    service.list_profiles = lambda: [
+        {
+            "stock_code": "600519",
+            "ai_review_cooldown_minutes": 30,
+            "ai_review_count_date": today,
+            "ai_review_count": 99,
+            "max_daily_ai_reviews": 1,
+        }
+    ]
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query):
+            return SimpleNamespace(scalar_one=lambda: SimpleNamespace(
+                last_ai_review_at=None,
+                ai_review_count_date=None,
+                ai_review_count=99,
+                updated_at=None,
+            ))
+
+        def commit(self):
+            return None
+
+    service.db = SimpleNamespace(get_session=lambda: FakeSession())
+    monkeypatch.setattr(
+        realtime_watch_module,
+        "get_task_queue",
+        lambda: SimpleNamespace(submit_task=lambda *args, **kwargs: SimpleNamespace(task_id="task-1", status=SimpleNamespace(value="pending"))),
+    )
+    monkeypatch.setattr(realtime_watch_module, "resolve_index_stock_code_for_analysis", lambda stock_code: stock_code)
+
+    result = service.submit_ai_review("600519")
+
+    assert result["task_id"] == "task-1"
+    assert result["status"] == "pending"

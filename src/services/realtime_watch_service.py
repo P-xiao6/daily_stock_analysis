@@ -21,7 +21,6 @@ MAX_REALTIME_WATCH_ITEMS = 5
 DEFAULT_VOLUME_RATIO_THRESHOLD = 2.0
 DEFAULT_CHANGE_PERCENT_THRESHOLD = 3.0
 DEFAULT_AI_REVIEW_COOLDOWN_MINUTES = 30
-MAX_DAILY_AI_REVIEWS = 3
 
 
 class RealtimeWatchValidationError(ValueError):
@@ -98,7 +97,7 @@ class RealtimeWatchService:
             "change_percent_threshold": row.change_percent_threshold or DEFAULT_CHANGE_PERCENT_THRESHOLD,
             "auto_ai_review_enabled": bool(row.auto_ai_review_enabled),
             "ai_review_cooldown_minutes": row.ai_review_cooldown_minutes or DEFAULT_AI_REVIEW_COOLDOWN_MINUTES,
-            "max_daily_ai_reviews": row.max_daily_ai_reviews or MAX_DAILY_AI_REVIEWS,
+            "max_daily_ai_reviews": row.max_daily_ai_reviews,
             "default_skill": row.default_skill,
             "last_ai_review_at": _iso(row.last_ai_review_at),
             "ai_review_count_date": row.ai_review_count_date.isoformat() if row.ai_review_count_date else None,
@@ -162,7 +161,6 @@ class RealtimeWatchService:
                 change_percent_threshold=DEFAULT_CHANGE_PERCENT_THRESHOLD,
                 auto_ai_review_enabled=False,
                 ai_review_cooldown_minutes=DEFAULT_AI_REVIEW_COOLDOWN_MINUTES,
-                max_daily_ai_reviews=MAX_DAILY_AI_REVIEWS,
                 ai_review_count=0,
                 created_at=now,
                 updated_at=now,
@@ -211,12 +209,6 @@ class RealtimeWatchService:
                 DEFAULT_AI_REVIEW_COOLDOWN_MINUTES,
                 minimum=1,
                 maximum=1440,
-            )
-            row.max_daily_ai_reviews = _bounded_int(
-                payload.get("max_daily_ai_reviews"),
-                MAX_DAILY_AI_REVIEWS,
-                minimum=1,
-                maximum=MAX_DAILY_AI_REVIEWS,
             )
             row.default_skill = str(payload.get("default_skill") or "").strip() or None
             row.updated_at = now
@@ -462,12 +454,6 @@ class RealtimeWatchService:
                 raise
             except Exception:
                 pass
-        count_date = profile.get("ai_review_count_date")
-        count = int(profile.get("ai_review_count") or 0) if count_date == now.date().isoformat() else 0
-        max_daily = int(profile.get("max_daily_ai_reviews") or MAX_DAILY_AI_REVIEWS)
-        if count >= max_daily:
-            raise RealtimeWatchValidationError(f"该股票今日 AI复核已达到上限 {max_daily} 次")
-
         selected_skill = str(skill_id or profile.get("default_skill") or "").strip() or None
         if save_as_default and selected_skill:
             update_payload = dict(profile)
@@ -500,7 +486,7 @@ class RealtimeWatchService:
             ).scalar_one()
             row.last_ai_review_at = now
             row.ai_review_count_date = now.date()
-            row.ai_review_count = count + 1
+            row.ai_review_count = (row.ai_review_count or 0) + 1
             row.updated_at = now
             session.commit()
 

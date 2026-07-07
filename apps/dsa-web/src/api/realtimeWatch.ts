@@ -29,7 +29,7 @@ export type RealtimeWatchProfile = {
   changePercentThreshold: number;
   autoAiReviewEnabled: boolean;
   aiReviewCooldownMinutes: number;
-  maxDailyAiReviews: number;
+  maxDailyAiReviews?: number | null;
   defaultSkill?: string | null;
   lastAiReviewAt?: string | null;
   aiReviewCountDate?: string | null;
@@ -99,7 +99,6 @@ export type RealtimeWatchProfileUpdateRequest = {
   changePercentThreshold: number;
   autoAiReviewEnabled: boolean;
   aiReviewCooldownMinutes: number;
-  maxDailyAiReviews: number;
   defaultSkill?: string | null;
 };
 
@@ -116,7 +115,6 @@ function toSnakeProfilePayload(payload: RealtimeWatchProfileUpdateRequest): Reco
     change_percent_threshold: payload.changePercentThreshold,
     auto_ai_review_enabled: payload.autoAiReviewEnabled,
     ai_review_cooldown_minutes: payload.aiReviewCooldownMinutes,
-    max_daily_ai_reviews: payload.maxDailyAiReviews,
     default_skill: payload.defaultSkill,
   };
 }

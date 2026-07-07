@@ -39,7 +39,7 @@ class RealtimeWatchProfile(BaseModel):
     change_percent_threshold: float = Field(3.0, ge=0.1, le=20)
     auto_ai_review_enabled: bool = False
     ai_review_cooldown_minutes: int = Field(30, ge=1, le=1440)
-    max_daily_ai_reviews: int = Field(3, ge=1, le=3)
+    max_daily_ai_reviews: Optional[int] = None
     default_skill: Optional[str] = None
     last_ai_review_at: Optional[str] = None
     ai_review_count_date: Optional[str] = None
@@ -70,7 +70,6 @@ class RealtimeWatchProfileUpdateRequest(BaseModel):
     change_percent_threshold: float = Field(3.0, ge=0.1, le=20)
     auto_ai_review_enabled: bool = False
     ai_review_cooldown_minutes: int = Field(30, ge=1, le=1440)
-    max_daily_ai_reviews: int = Field(3, ge=1, le=3)
     default_skill: Optional[str] = Field(None, max_length=64)
 
 

@@ -134,7 +134,7 @@ def get_snapshot(
     "/profiles/{stock_code}/ai-review",
     response_model=RealtimeWatchAiReviewResponse,
     responses={
-        400: {"model": ErrorResponse, "description": "冷却中、超过每日上限或参数错误"},
+        400: {"model": ErrorResponse, "description": "冷却中或参数错误"},
         500: {"model": ErrorResponse, "description": "提交失败"},
     },
     summary="手动提交 AI复核任务",

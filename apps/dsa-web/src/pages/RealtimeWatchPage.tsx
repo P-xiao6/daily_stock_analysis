@@ -26,7 +26,6 @@ type SettingsDialogState = {
   changePercentThreshold: number;
   autoAiReviewEnabled: boolean;
   aiReviewCooldownMinutes: number;
-  maxDailyAiReviews: number;
   defaultSkill: string;
 } | null;
 
@@ -93,6 +92,25 @@ function signalText(item: RealtimeWatchItem): string {
   const parts = [signal.action, signal.confidence ? `置信 ${signal.confidence}` : null, signal.score !== undefined && signal.score !== null ? `分数 ${signal.score}` : null]
     .filter(Boolean);
   return parts.join(' · ') || '暂无建议';
+}
+
+function taskStatusLabel(status: TaskStatus['status']): string {
+  const labels: Record<TaskStatus['status'], string> = {
+    pending: '排队中',
+    processing: '分析中',
+    completed: '已完成，已刷新',
+    failed: '失败',
+    cancel_requested: '取消中',
+    cancelled: '已取消',
+  };
+  return labels[status] || status;
+}
+
+function taskProgress(task: TaskStatus): number {
+  if (typeof task.progress === 'number') return Math.max(0, Math.min(100, task.progress));
+  if (task.status === 'completed') return 100;
+  if (task.status === 'processing') return 50;
+  return 0;
 }
 
 const RealtimeWatchPage: React.FC = () => {
@@ -168,14 +186,17 @@ const RealtimeWatchPage: React.FC = () => {
       .filter(([, task]) => ['pending', 'processing'].includes(task.status))
       .map(([code, task]) => ({ code, taskId: task.taskId }));
     if (taskIds.length === 0) return;
+    const pollTask = (code: string, taskId: string) => {
+      analysisApi.getStatus(taskId)
+        .then((status) => {
+          setTaskStatusByCode((prev) => ({ ...prev, [code]: status }));
+          if (status.status === 'completed') void loadSnapshot(true);
+        })
+        .catch(() => undefined);
+    };
     const timer = window.setInterval(() => {
       taskIds.forEach(({ code, taskId }) => {
-        analysisApi.getStatus(taskId)
-          .then((status) => {
-            setTaskStatusByCode((prev) => ({ ...prev, [code]: status }));
-            if (status.status === 'completed') void loadSnapshot(true);
-          })
-          .catch(() => undefined);
+        pollTask(code, taskId);
       });
     }, 4000);
     return () => window.clearInterval(timer);
@@ -207,7 +228,6 @@ const RealtimeWatchPage: React.FC = () => {
       changePercentThreshold: profile.changePercentThreshold || 3,
       autoAiReviewEnabled: profile.autoAiReviewEnabled,
       aiReviewCooldownMinutes: profile.aiReviewCooldownMinutes || 30,
-      maxDailyAiReviews: profile.maxDailyAiReviews || 3,
       defaultSkill: profile.defaultSkill || '',
     });
   };
@@ -226,7 +246,6 @@ const RealtimeWatchPage: React.FC = () => {
       changePercentThreshold: settingsDialog.changePercentThreshold,
       autoAiReviewEnabled: settingsDialog.autoAiReviewEnabled,
       aiReviewCooldownMinutes: settingsDialog.aiReviewCooldownMinutes,
-      maxDailyAiReviews: settingsDialog.maxDailyAiReviews,
       defaultSkill: settingsDialog.defaultSkill || null,
     };
     try {
@@ -264,6 +283,13 @@ const RealtimeWatchPage: React.FC = () => {
         },
       }));
       setReviewDialog(null);
+      setMessage('AI复核已提交，页面会自动显示进度并在完成后刷新最新建议。');
+      analysisApi.getStatus(response.taskId)
+        .then((status) => {
+          setTaskStatusByCode((prev) => ({ ...prev, [item.profile.stockCode]: status }));
+          if (status.status === 'completed') void loadSnapshot(true);
+        })
+        .catch(() => undefined);
     } catch (err) {
       setError(getParsedApiError(err));
     }
@@ -282,30 +308,44 @@ const RealtimeWatchPage: React.FC = () => {
 
   const renderActions = (item: RealtimeWatchItem) => {
     const task = taskStatusByCode[item.profile.stockCode];
+    const progress = task ? taskProgress(task) : 0;
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!canMutate}
-          onClick={() => setReviewDialog({
-            item,
-            skillId: item.profile.defaultSkill || '',
-            modelStrategy: 'auto',
-            saveAsDefault: false,
-          })}
-        >
-          <Bot className="h-4 w-4" />
-          AI复核
-        </Button>
-        <Button size="sm" variant="ghost" disabled={!canMutate} onClick={() => openSettings(item.profile)}>
-          <Settings2 className="h-4 w-4" />
-          规则
-        </Button>
-        <Button size="sm" variant="danger-subtle" disabled={!canMutate} onClick={() => setDeleteTarget(item)}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-        {task ? <span className="text-xs text-secondary-text">任务 {task.status}</span> : null}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!canMutate || task?.status === 'pending' || task?.status === 'processing'}
+            onClick={() => setReviewDialog({
+              item,
+              skillId: item.profile.defaultSkill || '',
+              modelStrategy: 'auto',
+              saveAsDefault: false,
+            })}
+          >
+            <Bot className="h-4 w-4" />
+            AI复核
+          </Button>
+          <Button size="sm" variant="ghost" disabled={!canMutate} onClick={() => openSettings(item.profile)}>
+            <Settings2 className="h-4 w-4" />
+            规则
+          </Button>
+          <Button size="sm" variant="danger-subtle" disabled={!canMutate} onClick={() => setDeleteTarget(item)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+        {task ? (
+          <div className="rounded-lg border border-border/70 bg-card/70 p-2 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-foreground">AI复核：{taskStatusLabel(task.status)}</span>
+              <span className="text-secondary-text">{progress}%</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className={`h-full rounded-full ${task.status === 'failed' ? 'bg-danger' : 'bg-cyan'}`} style={{ width: `${progress}%` }} />
+            </div>
+            {task.error ? <div className="mt-1 text-danger">{task.error}</div> : null}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -484,10 +524,6 @@ const RealtimeWatchPage: React.FC = () => {
                 <span className="text-secondary-text">AI复核冷却分钟</span>
                 <input type="number" min={1} max={1440} className="mt-1 h-10 w-full rounded-xl border border-border/70 bg-card px-3 text-foreground" value={settingsDialog.aiReviewCooldownMinutes} onChange={(event) => setSettingsDialog((prev) => prev ? { ...prev, aiReviewCooldownMinutes: Number(event.target.value) } : prev)} />
               </label>
-              <label className="text-sm">
-                <span className="text-secondary-text">每日 AI复核上限</span>
-                <input type="number" min={1} max={3} className="mt-1 h-10 w-full rounded-xl border border-border/70 bg-card px-3 text-foreground" value={settingsDialog.maxDailyAiReviews} onChange={(event) => setSettingsDialog((prev) => prev ? { ...prev, maxDailyAiReviews: Number(event.target.value) } : prev)} />
-              </label>
               <label className="text-sm md:col-span-2">
                 <span className="text-secondary-text">默认分析策略</span>
                 <select className="mt-1 h-10 w-full rounded-xl border border-border/70 bg-card px-3 text-foreground" value={settingsDialog.defaultSkill} onChange={(event) => setSettingsDialog((prev) => prev ? { ...prev, defaultSkill: event.target.value } : prev)}>
@@ -497,7 +533,7 @@ const RealtimeWatchPage: React.FC = () => {
               </label>
               <label className="flex items-center gap-2 text-sm md:col-span-2">
                 <input type="checkbox" checked={settingsDialog.autoAiReviewEnabled} onChange={(event) => setSettingsDialog((prev) => prev ? { ...prev, autoAiReviewEnabled: event.target.checked } : prev)} />
-                开启重大规则触发后的自动 AI复核（仍受冷却和每日上限限制）
+                开启重大规则触发后的自动 AI复核（仍受冷却限制）
               </label>
             </div>
             {settingsDialog.autoAiReviewEnabled ? <InlineAlert className="mt-4" variant="warning" title="成本提示" message="盘中多次 AI复核会增加 token 成本；2核2G 建议默认关闭，只手动复核关键时点。" /> : null}
@@ -513,7 +549,7 @@ const RealtimeWatchPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-border/70 bg-elevated p-5 shadow-2xl">
             <h2 className="text-lg font-semibold text-foreground">AI复核 · {reviewDialog.item.profile.stockCode}</h2>
-            <InlineAlert className="mt-3" variant="warning" title="确认调用大模型" message="AI复核会进入深度分析队列并消耗 token；同一股票默认冷却 30 分钟，每天最多 3 次。" />
+            <InlineAlert className="mt-3" variant="warning" title="确认调用大模型" message="AI复核会进入深度分析队列并消耗 token；同一股票受冷却时间限制，不再设置每日次数上限。" />
             <div className="mt-4 space-y-3">
               <label className="block text-sm">
                 <span className="text-secondary-text">分析策略</span>

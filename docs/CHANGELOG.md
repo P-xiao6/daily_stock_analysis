@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [修复] 大盘复盘在 LLM 标题漂移或正文缺少板块段时，会从结构化 `sectors` 兜底渲染板块表，避免 Web 与推送报告偶发缺少板块主线。
 - [新功能] Web 设置页新增 DeepSeek Flash/Pro 模型策略切换，支持省钱、平衡、深度三种策略自动更新 `LITELLM_MODEL` / `AGENT_LITELLM_MODEL` / `LITELLM_FALLBACK_MODELS`，首页新增“本次 Pro”请求级临时开关，并补充成本与 Docker environment 覆盖提示。
 - [新功能] Web 新增“重点盯盘”页面和 `/realtime-watch` API，支持最多 5 只股票实时行情刷新、规则型动态建议、最新 AI建议联动和受控 AI复核。
+- [改进] 重点盯盘 AI复核提交后展示排队/分析/完成/失败进度，完成后自动刷新最新 AI建议，并取消每日 AI复核次数上限。
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
